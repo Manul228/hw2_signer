@@ -36,6 +36,7 @@ func SingleHash(in, out chan interface{}) {
 
 	for data := range in {
 		dataString := fmt.Sprintf("%v", data)
+		fmt.Println(dataString)
 		md5sum := DataSignerMd5(dataString)
 
 		wg.Add(1)
