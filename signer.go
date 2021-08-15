@@ -10,7 +10,21 @@ import (
 const TH = 6
 
 func ExecutePipeline(jobs ...job) {
+	in := make(chan interface{})
+	wg := new(sync.WaitGroup)
 
+	for _, jobFunc := range jobs {
+		wg.Add(1)
+		out := make(chan interface{})
+		go worker(jobFunc, in, out, wg)
+	}
+	wg.Wait()
+}
+
+func worker(jobFunc job, in, out chan interface{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer close(out)
+	go jobFunc(in, out)
 }
 
 func SingleHash(in, out chan interface{}) {
@@ -20,12 +34,12 @@ func SingleHash(in, out chan interface{}) {
 		md5sum := DataSignerMd5(data.(string))
 
 		wg.Add(1)
-		go workerSingleHash(wg, data.(string), md5sum, out)
+		go workerSingleHash(data.(string), md5sum, out, wg)
 	}
 	wg.Wait()
 }
 
-func workerSingleHash(wg *sync.WaitGroup, data string, md5sum string, out chan interface{}) {
+func workerSingleHash(data string, md5sum string, out chan interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	crc32ch := make(chan string)
