@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ const TH = 6
 
 func ExecutePipeline(jobs ...job) {
 	in := make(chan interface{})
+
 	wg := new(sync.WaitGroup)
 
 	for _, jobFunc := range jobs {
@@ -25,19 +27,22 @@ func ExecutePipeline(jobs ...job) {
 func worker(jobFunc job, in, out chan interface{}, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer close(out)
-	go jobFunc(in, out)
+	jobFunc(in, out)
 }
 
 func SingleHash(in, out chan interface{}) {
 	wg := new(sync.WaitGroup)
+	fmt.Println("sh start")
 
 	for data := range in {
-		md5sum := DataSignerMd5(data.(string))
+		dataString := fmt.Sprintf("%v", data)
+		md5sum := DataSignerMd5(dataString)
 
 		wg.Add(1)
-		go workerSingleHash(data.(string), md5sum, out, wg)
+		go workerSingleHash(dataString, md5sum, out, wg)
 	}
 	wg.Wait()
+	fmt.Println("sh")
 }
 
 func workerSingleHash(data string, md5sum string, out chan interface{}, wg *sync.WaitGroup) {
@@ -61,11 +66,13 @@ func calculateHash(data string, ch chan string) {
 
 func MultiHash(in, out chan interface{}) {
 	wg := new(sync.WaitGroup)
+	fmt.Println("mh start")
 
 	for data := range in {
 		wg.Add(1)
 		workerMultiHash(data.(string), out, wg)
 	}
+	fmt.Println("mh")
 }
 
 func workerMultiHash(data string, out chan interface{}, wg *sync.WaitGroup) {
@@ -91,14 +98,17 @@ func calculateMultiHash(data string, th int, hashes []string, wg *sync.WaitGroup
 }
 
 func CombineResults(in, out chan interface{}) {
+	fmt.Println("cr start")
 
 	var hashes []string
 
 	for data := range in {
-		hashes = append(hashes, data.(string))
+		dataString := fmt.Sprintf("%v", data)
+		hashes = append(hashes, dataString)
 	}
 
 	sort.Strings(hashes)
 
 	out <- strings.Join(hashes, "_")
+	fmt.Println("cr")
 }

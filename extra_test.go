@@ -30,6 +30,7 @@ func TestByIlia(t *testing.T) {
 		}),
 		job(func(in, out chan interface{}) {
 			for val := range in {
+				fmt.Println(val)
 				out <- val.(uint32) * 3
 				time.Sleep(time.Millisecond * 100)
 			}
