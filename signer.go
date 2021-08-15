@@ -1,6 +1,9 @@
 package main
 
 import (
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -11,7 +14,7 @@ func ExecutePipeline(jobs ...job) {
 }
 
 func SingleHash(in, out chan interface{}) {
-	wg := &sync.WaitGroup{}
+	wg := new(sync.WaitGroup)
 
 	for data := range in {
 		md5sum := DataSignerMd5(data.(string))
@@ -42,9 +45,45 @@ func calculateHash(data string, ch chan string) {
 }
 
 func MultiHash(in, out chan interface{}) {
+	wg := new(sync.WaitGroup)
 
+	for data := range in {
+		wg.Add(1)
+		workerMultiHash(data.(string), out, wg)
+	}
+}
+
+func workerMultiHash(data string, out chan interface{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	wgroup := new(sync.WaitGroup)
+
+	hashes := make([]string, TH)
+
+	for i := 0; i < TH; i++ {
+		wgroup.Add(1)
+		go calculateMultiHash(data, i, hashes, wgroup)
+	}
+
+	wg.Wait()
+
+	out <- strings.Join(hashes, "")
+}
+
+func calculateMultiHash(data string, th int, hashes []string, wg *sync.WaitGroup) {
+	hashes[th] = strconv.Itoa(th) + DataSignerCrc32(data)
+	wg.Done()
 }
 
 func CombineResults(in, out chan interface{}) {
 
+	var hashes []string
+
+	for data := range in {
+		hashes = append(hashes, data.(string))
+	}
+
+	sort.Strings(hashes)
+
+	out <- strings.Join(hashes, "_")
 }
