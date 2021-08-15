@@ -1,7 +1,6 @@
 package main
 
 import (
-	"hash/crc32"
 	"sync"
 )
 
@@ -27,13 +26,25 @@ func workerSingleHash(wg *sync.WaitGroup, data string, md5sum string, out chan i
 	crc32ch := make(chan string)
 	crc32md5ch := make(chan string)
 
-	crc32ch <- DataSignerCrc32(data)
-	crc32md5ch <- DataSignerCrc32(md5sum)
+	wgroup := &sync.WaitGroup{}
+
+	wgroup.Add(1)
+	go calculateHash(data, crc32ch, wgroup)
+
+	wgroup.Add(1)
+	go calculateHash(md5sum, crc32md5ch, wgroup)
+
+	wgroup.Wait()
 
 	crc32data := <-crc32ch
 	crc32md5sum := <-crc32md5ch
 
 	out <- crc32data + "~" + crc32md5sum
+}
+
+func calculateHash(data string, ch chan string, wg *sync.WaitGroup) {
+	ch <- DataSignerCrc32(data)
+	wg.Done()
 }
 
 func MultiHash(in, out chan interface{}) {
